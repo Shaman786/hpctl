@@ -14,3 +14,20 @@ type ServiceItem struct {
 	NextDue      string `json:"next_due"`
 	Status       string `json:"status"` // e.g. Cancelled, Active
 }
+
+type ServiceDetailResponse struct {
+	Service ServiceDetail `json:"service"` // The API usually wraps it in a root key
+}
+
+type ServiceDetail struct {
+	ID               string `json:"id"`
+	Name             string `json:"name"`
+	Domain           string `json:"domain"`
+	DedicatedIP      string `json:"dedicatedip"` // specific to single view
+	Status           string `json:"status"`
+	RegistrationDate string `json:"regdate"`
+	NextDueDate      string `json:"nextduedate"`
+	BillingCycle     string `json:"billingcycle"`
+	Amount           string `json:"recurringamount"`
+	PaymentMethod    string `json:"paymentmethodname"`
+}
