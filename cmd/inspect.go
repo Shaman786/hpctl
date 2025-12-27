@@ -3,11 +3,10 @@ package cmd
 import (
 	"encoding/json"
 	"fmt"
-	"os"
-	"text/template" // <--- Added this for templates
 
 	"github.com/Shaman786/hpctl/pkg/api"
 	"github.com/Shaman786/hpctl/pkg/models"
+	"github.com/Shaman786/hpctl/pkg/templates"
 	"github.com/spf13/cobra"
 )
 
@@ -19,7 +18,7 @@ var inspectCmd = &cobra.Command{
 		serviceID := args[0]
 		client := api.NewClient()
 
-		// 1. Fetch Data
+		// 1. Fetch
 		endpoint := fmt.Sprintf("/service/%s", serviceID)
 		data, err := client.Get(endpoint)
 		if err != nil {
@@ -27,11 +26,10 @@ var inspectCmd = &cobra.Command{
 			return
 		}
 
-		// 2. Parse JSON
+		// 2. Parse (Handles potential API inconsistencies)
 		var response models.ServiceDetailResponse
-		err = json.Unmarshal(data, &response)
-		if err != nil {
-			// Fallback: Try unmarshaling directly if API returns raw object
+		if err := json.Unmarshal(data, &response); err != nil {
+			// Fallback if API returns direct object instead of wrapper
 			var directResponse models.ServiceDetail
 			if err2 := json.Unmarshal(data, &directResponse); err2 == nil {
 				response.Service = directResponse
@@ -41,28 +39,8 @@ var inspectCmd = &cobra.Command{
 			}
 		}
 
-		s := response.Service
-
-		// 3. Define the Template (The "View")
-		const layout = `
-📋 SERVICE DETAILS
-------------------------------------------------
-Name:        {{ .Name }}
-Domain:      {{ .Domain }}
-Status:      {{ .Status }}
-IP Address:  {{ .DedicatedIP }}
-Price:       {{ .Amount }} {{ .BillingCycle }}
-Next Due:    {{ .NextDueDate }}
-Payment:     {{ .PaymentMethod }}
-------------------------------------------------
-`
-
-		// 4. Render the Output
-		t := template.Must(template.New("service").Parse(layout))
-		err = t.Execute(os.Stdout, s)
-		if err != nil {
-			fmt.Println("Error formatting output:", err)
-		}
+		// 3. Render
+		templates.Render(templates.ServiceDetail, response.Service)
 	},
 }
 
