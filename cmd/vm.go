@@ -72,12 +72,18 @@ var createCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]
-		image, _ := cmd.Flags().GetString("image")
+		image, _ := cmd.Flags().GetString("image") // This is safe to ignore
 
 		fmt.Printf("📡 Provisioning %s (%s)...\n", name, image)
 
-		payload := fmt.Sprintf(`{"name": "%s", "image": "%s"}`, name, image)
-		resp, err := http.Post(API_URL+"/servers", "application/json", strings.NewReader(payload))
+		// FIX: Use a struct + json.Marshal for safety
+		reqBody := map[string]string{
+			"name":  name,
+			"image": image,
+		}
+		jsonPayload, _ := json.Marshal(reqBody)
+
+		resp, err := http.Post(API_URL+"/servers", "application/json", strings.NewReader(string(jsonPayload)))
 		if err != nil {
 			fmt.Printf("❌ API Error: %v\n", err)
 			return
@@ -85,7 +91,11 @@ var createCmd = &cobra.Command{
 		defer resp.Body.Close()
 
 		var res ApiResponse
-		json.NewDecoder(resp.Body).Decode(&res)
+		// FIX: Handle JSON decode errors (e.g., if API crashes and returns HTML)
+		if err := json.NewDecoder(resp.Body).Decode(&res); err != nil {
+			fmt.Println("❌ Error: Received invalid response from Cloud API")
+			return
+		}
 
 		if resp.StatusCode == 201 {
 			fmt.Printf("✔ Success: %s (ID: %s)\n", res.Message, res.ServerID)
@@ -133,12 +143,19 @@ var destroyCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		name := args[0]
-		req, _ := http.NewRequest("DELETE", fmt.Sprintf("%s/servers/%s", API_URL, name), nil)
+
+		// FIX 1: Handle the error!
+		req, err := http.NewRequest("DELETE", fmt.Sprintf("%s/servers/%s", API_URL, name), nil)
+		if err != nil {
+			fmt.Printf("❌ Internal Error creating request: %v\n", err)
+			return
+		}
+
 		client := &http.Client{}
 		resp, err := client.Do(req)
 
 		if err != nil {
-			fmt.Printf("❌ API Error: %v\n", err)
+			fmt.Printf("❌ Connection Error: %v\n", err)
 			return
 		}
 		defer resp.Body.Close()
@@ -146,7 +163,10 @@ var destroyCmd = &cobra.Command{
 		if resp.StatusCode == 200 {
 			fmt.Printf("✔ Server '%s' destroyed successfully.\n", name)
 		} else {
-			fmt.Printf("❌ Failed to destroy server.\n")
+			// FIX 2: Decode the error message from the API instead of guessing
+			var res ApiResponse
+			json.NewDecoder(resp.Body).Decode(&res)
+			fmt.Printf("❌ Failed: %s\n", res.Error)
 		}
 	},
 }
