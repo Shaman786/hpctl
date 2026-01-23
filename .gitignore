@@ -38,3 +38,7 @@ hp-cloud-api/.env
 # Binaries
 *.exe
 *.log
+
+# Build Artifacts
+dist/
+hpctl
