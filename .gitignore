@@ -42,3 +42,6 @@ hp-cloud-api/.env
 # Build Artifacts
 dist/
 hpctl
+dist/
+
+hpctl
